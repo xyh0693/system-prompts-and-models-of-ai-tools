@@ -1,0 +1,57 @@
+# 工作流程名稱
+name: Sync with Upstream
+
+# 觸發條件
+on:
+  # 1. 定時觸發：使用 cron 表達式，此處設置為每小時執行一次。
+  #    您可以根據需要調整：
+  #    '0 0 * * *'  - 每天午夜
+  #    '0 */6 * * *' - 每6小時
+  schedule:
+    - cron: '0 * * * *'
+
+  # 2. 手動觸發：允許您在 GitHub Actions 頁面手動點擊按鈕運行此工作流程。
+  workflow_dispatch:
+
+# 工作任務
+jobs:
+  sync:
+    # 運行環境
+    runs-on: ubuntu-latest
+
+    # 任務步驟
+    steps:
+      # 步驟 1: 檢出您的 fork 倉庫代碼
+      - name: Checkout Fork
+        uses: actions/checkout@v4
+        with:
+          # 使用 Personal Access Token (PAT)，以便推送的更改可以觸發其他 Actions (例如 CI/CD)
+          # 如果您不需要這個功能，可以將 'token' 行刪除，默認使用 GITHUB_TOKEN
+          token: ${{ secrets.ACTION_PAT }}
+          # 獲取所有 git 歷史記錄，這對於合併非 fast-forward 的更新很重要
+          fetch-depth: 0
+
+      # 步驟 2: 設置上游（原始）倉庫的遠程地址
+      - name: Set up remote for upstream repository
+        run: |
+          git remote add upstream https://github.com/x1xhlol/system-prompts-and-models-of-ai-tools.git
+
+      # 步驟 3: 同步分支
+      - name: Sync main branch with upstream
+        run: |
+          # 配置 git 用戶信息，以便可以提交合併
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # 從上游倉庫獲取最新內容
+          git fetch upstream
+          
+          # 切換到本地的 main 分支
+          git checkout main
+          
+          # 將上游的 main 分支合併到本地 main 分支
+          # 使用 '--ff-only' 策略可以避免在有衝突時創建合併提交，如果您的 fork 有自己的修改，可以移除此標誌
+          git merge upstream/main
+          
+          # 將更新推送到您的 fork 倉庫 (origin)
+          git push origin main
